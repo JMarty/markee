@@ -1,0 +1,48 @@
+<!doctype html>
+<!-- Csak fejlesztéshez: a felület böngészőben, Tauri nélkül (mockolt API-val). -->
+<html lang="hu">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MD View (preview)</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <script>
+      const ROOT = "C:\\dev\\markdown viewer\\";
+      const toUrl = (p) => "/" + p.replace(ROOT, "").replace(/\\/g, "/");
+      let cbId = 0;
+      window.__TAURI_INTERNALS__ = {
+        metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
+        convertFileSrc: toUrl,
+        transformCallback: (cb) => {
+          const id = ++cbId;
+          window["_" + id] = cb;
+          return id;
+        },
+        invoke: async (cmd, args) => {
+          if (cmd === "read_file") {
+            const r = await fetch(toUrl(args.path));
+            if (!r.ok) throw "nem található";
+            return r.text();
+          }
+          if (cmd === "take_launch_files") return [ROOT + "samples\\demo.md", ROOT + "samples\\masik.md"];
+          if (cmd === "file_exists") return true;
+          return null;
+        },
+      };
+    </script>
+  </head>
+  <body></body>
+  <script>
+    // az index.html törzsét használjuk, hogy ne legyen két példány a markupból
+    fetch("/index.html")
+      .then((r) => r.text())
+      .then((html) => {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        doc.querySelectorAll("script").forEach((s) => s.remove());
+        document.body.innerHTML = doc.body.innerHTML;
+        const s = document.createElement("script");
+        s.type = "module";
+        s.src = "/src/main.ts";
+        document.body.appendChild(s);
+      });
+  </script>
+</html>

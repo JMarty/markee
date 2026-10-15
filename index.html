@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MD View</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header id="titlebar">
+      <div id="tabs" role="tablist"></div>
+      <div id="toolbar">
+        <button id="btn-open" title="Megnyitás (Ctrl+O)">
+          <svg viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z"/></svg>
+        </button>
+        <button id="btn-toc" title="Tartalomjegyzék (Ctrl+B)">
+          <svg viewBox="0 0 16 16"><path d="M3 4h10M3 8h7M3 12h9"/></svg>
+        </button>
+        <button id="btn-width" title="Olvasási szélesség (Ctrl+Shift+W)">
+          <svg viewBox="0 0 16 16"><path d="M2 8h12M4.5 5.5 2 8l2.5 2.5M11.5 5.5 14 8l-2.5 2.5"/></svg>
+        </button>
+        <button id="btn-theme" title="Téma (Ctrl+Shift+L)">
+          <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11a5.5 5.5 0 0 0 0-11z" class="fill"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div id="findbar" hidden>
+      <input id="find-input" type="text" placeholder="Keresés…" spellcheck="false" />
+      <span id="find-count"></span>
+      <button id="find-prev" title="Előző (Shift+Enter)">↑</button>
+      <button id="find-next" title="Következő (Enter)">↓</button>
+      <button id="find-close" title="Bezárás (Esc)">✕</button>
+    </div>
+
+    <main id="main">
+      <nav id="toc" hidden></nav>
+      <div id="scroller">
+        <div id="docs"></div>
+        <section id="welcome">
+          <h1>MD View</h1>
+          <p>Húzz ide egy Markdown fájlt, vagy nyomd meg a <kbd>Ctrl</kbd>+<kbd>O</kbd> billentyűt.</p>
+          <div id="recent-wrap" hidden>
+            <h2>Legutóbbi fájlok</h2>
+            <ul id="recent"></ul>
+          </div>
+          <div class="shortcuts">
+            <span><kbd>Ctrl</kbd>+<kbd>Tab</kbd> következő tab</span>
+            <span><kbd>Ctrl</kbd>+<kbd>W</kbd> tab bezárása</span>
+            <span><kbd>Ctrl</kbd>+<kbd>F</kbd> keresés</span>
+            <span><kbd>Ctrl</kbd>+<kbd>B</kbd> tartalomjegyzék</span>
+            <span><kbd>Ctrl</kbd>+<kbd>+</kbd>/<kbd>−</kbd> zoom</span>
+            <span><kbd>Alt</kbd>+<kbd>←</kbd> vissza</span>
+          </div>
+        </section>
+      </div>
+    </main>
+    <div id="drop-overlay" hidden><div>Engedd el a megnyitáshoz</div></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
