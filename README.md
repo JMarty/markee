@@ -51,7 +51,7 @@ A Markdown nyersen olvasható, de renderelve az igazi. A meglévő megoldások v
 
 ## Telepítés
 
-Töltsd le a legfrissebb `MD View_x.y.z_x64-setup.exe` fájlt a [Releases](../../releases) oldalról, és futtasd. Rendszergazdai jog nem kell (a telepítés felhasználói szintű).
+Töltsd le a legfrissebb `…_x64-setup.exe` telepítőt a [Releases](../../releases) oldalról, és futtasd. Rendszergazdai jog nem kell (a telepítés felhasználói szintű).
 
 **Alapértelmezett nézegetőnek** a Windows nem engedi automatikusan beállítani, ezért egyszer kézzel kell: jobb klikk egy `.md` fájlon → *Társítás* → *Másik alkalmazás választása* → **MD View** → *Mindig*.
 
