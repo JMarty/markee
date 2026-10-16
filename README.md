@@ -4,8 +4,6 @@
 
 *A fast, lightweight Markdown viewer for Windows, built with Tauri.*
 
-> Korai verzió. A végleges ikon még készül – lásd az [ütemtervet](#ütemterv).
-
 ## Miért?
 
 A Markdown nyersen olvasható, de renderelve az igazi. A meglévő megoldások vagy nehézkesek (egy teljes IDE elindítása egy README miatt), vagy inkább szerkesztők, mint nézegetők. A Markee egyetlen dologra készült: **megnyitni és szépen megmutatni** a Markdown fájlokat – azonnal.
@@ -110,7 +108,7 @@ samples/        tesztdokumentumok
 ## Ütemterv
 
 - [x] Név
-- [ ] Végleges ikon
+- [x] Ikon
 - [x] Súgó, menü, névjegy
 - [x] Automatikus frissítés
 - [x] Mermaid diagramok, KaTeX matematika
