@@ -1,4 +1,4 @@
-# MD View bemutató
+# Markee bemutató
 
 Ez egy **tesztdokumentum**, amin minden funkció kipróbálható. Linkek: [másik fájl](masik.md), [szakaszra ugrás](#táblázatok), külső: https://example.com
 
@@ -55,6 +55,22 @@ fn main() {
 ```diff
 - régi sor
 + új sor
+```
+
+## Képletek
+
+Az Euler-azonosság: $e^{i\pi} + 1 = 0$, ez viszont nem képlet: 5$ és 10$.
+
+$$
+\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}
+$$
+
+## Diagram
+
+```mermaid
+sequenceDiagram
+  Felhasználó->>Markee: dupla kattintás a .md fájlon
+  Markee-->>Felhasználó: szépen renderelt dokumentum
 ```
 
 ## Kép

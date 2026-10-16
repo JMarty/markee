@@ -2,10 +2,16 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { getVersion } from "@tauri-apps/api/app";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { openUrl, openPath } from "@tauri-apps/plugin-opener";
+import { openUrl, openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { render, basename, dirname, resolvePath, samePath, splitHref, isExternal, MD_EXT, type TocItem } from "./render";
 import { initFind, openFind, closeFind, findOpen, findStep, setFindRoot } from "./find";
+import { enhance, rethemeDiagrams } from "./extras";
+import { initFolder, setFolderRoot, setFolderActive, folderRoot } from "./folder";
+import { checkForUpdates } from "./updater";
+import helpText from "./help.md?raw";
+import iconUrl from "./assets/icon.svg";
 
 // ---- Állapot -----------------------------------------------------------------
 
@@ -25,15 +31,23 @@ interface Tab {
   tabEl: HTMLElement;
 }
 
+/** Beépített dokumentumok (pl. súgó) – nem fájlból jönnek, nem figyeljük őket. */
+const HELP = "markee:súgó";
+const isVirtual = (p: string) => p.startsWith("markee:");
+const titleOf = (p: string) => (p === HELP ? "Súgó" : basename(p));
+
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const tabsEl = $("tabs");
 const docsEl = $("docs");
 const scroller = $("scroller");
+const sidebar = $("sidebar");
 const tocEl = $("toc");
+const filesEl = $("files");
 const welcome = $("welcome");
+const menu = $("menu");
 const appWindow = getCurrentWindow();
 
-let tabs: Tab[] = [];
+const tabs: Tab[] = [];
 let active: Tab | null = null;
 let nextId = 1;
 const closedPaths: string[] = [];
@@ -57,22 +71,38 @@ function save(key: string, value: unknown) {
 }
 
 type Theme = "system" | "light" | "dark";
+type Pane = "toc" | "files";
 const settings = {
   theme: load<Theme>("theme", "system"),
   zoom: load("zoom", 1),
   wide: load("wide", false),
-  toc: load("toc", true),
+  sidebar: load("sidebar", true),
+  pane: load<Pane>("pane", "toc"),
+  /** kézzel választott mappa a Fájlok panelhez; ha nincs, az aktív fájl mappáját követi */
+  folder: load<string | null>("folder", null),
 };
 
 function applySettings() {
   const root = document.documentElement;
+  const prevDark = isDark();
   if (settings.theme === "system") root.removeAttribute("data-theme");
   else root.dataset.theme = settings.theme;
   root.style.setProperty("--zoom", String(settings.zoom));
   root.classList.toggle("wide", settings.wide);
-  $("btn-theme").title = `Téma: ${{ system: "rendszer", light: "világos", dark: "sötét" }[settings.theme]} (Ctrl+Shift+L)`;
-  updateToc();
+  $("zoom-label").textContent = `${Math.round(settings.zoom * 100)}%`;
+  for (const b of document.querySelectorAll<HTMLElement>("[data-theme-set]"))
+    b.classList.toggle("on", b.dataset.themeSet === settings.theme);
+  if (prevDark !== isDark()) rethemeDiagrams(tabs.map((t) => t.doc));
+  updateSidebar();
 }
+
+function isDark() {
+  const t = document.documentElement.dataset.theme;
+  return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+}
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (settings.theme === "system") rethemeDiagrams(tabs.map((t) => t.doc));
+});
 
 function setZoom(z: number) {
   settings.zoom = Math.round(Math.min(2.5, Math.max(0.6, z)) * 10) / 10;
@@ -80,26 +110,37 @@ function setZoom(z: number) {
   applySettings();
 }
 
+function setTheme(t: Theme) {
+  settings.theme = t;
+  save("theme", t);
+  applySettings();
+}
+
 // ---- Legutóbbi fájlok ----------------------------------------------------------
 
 function addRecent(path: string) {
+  if (isVirtual(path)) return;
   const list = load<string[]>("recent", []).filter((p) => !samePath(p, path));
   list.unshift(path);
   save("recent", list.slice(0, 12));
 }
 
+function recentLink(p: string, onClick: () => void, tag: "a" | "button" = "a"): HTMLElement {
+  const a = document.createElement(tag);
+  a.innerHTML = `<b></b><span></span>`;
+  a.querySelector("b")!.textContent = basename(p);
+  a.querySelector("span")!.textContent = dirname(p);
+  a.title = p;
+  a.onclick = onClick;
+  return a;
+}
+
 function renderWelcome() {
   const list = load<string[]>("recent", []);
-  const ul = $("recent");
-  ul.replaceChildren(
+  $("recent").replaceChildren(
     ...list.map((p) => {
       const li = document.createElement("li");
-      const a = document.createElement("a");
-      a.innerHTML = `<b></b><span></span>`;
-      a.querySelector("b")!.textContent = basename(p);
-      a.querySelector("span")!.textContent = dirname(p);
-      a.onclick = () => openFile(p);
-      li.appendChild(a);
+      li.appendChild(recentLink(p, () => openFile(p)));
       return li;
     }),
   );
@@ -111,7 +152,7 @@ function renderWelcome() {
 async function loadInto(tab: Tab, scroll = 0, hash = "") {
   let frag: DocumentFragment;
   try {
-    const src = await invoke<string>("read_file", { path: tab.path });
+    const src = tab.path === HELP ? helpText : await invoke<string>("read_file", { path: tab.path });
     const r = render(src, tab.path);
     frag = r.frag;
     tab.toc = r.toc;
@@ -125,20 +166,38 @@ async function loadInto(tab: Tab, scroll = 0, hash = "") {
   }
   tab.doc.replaceChildren(frag);
   updateTabLabel(tab);
-  if (tab === active) {
-    updateToc();
-    setFindRoot(tab.doc, true);
+  const restore = () => {
+    if (tab !== active) return;
     if (hash) scrollToId(hash);
     else scroller.scrollTop = scroll;
+  };
+  if (tab === active) {
+    updateSidebar();
+    setFindRoot(tab.doc, true);
+    restore();
   } else {
     tab.scroll = scroll;
+  }
+  // a képletek/diagramok megváltoztatják a magasságot, ezért utána újra pozicionálunk
+  const hasExtras = tab.doc.querySelector("[data-tex], .mermaid-block");
+  if (hasExtras) {
+    await enhance(tab.doc);
+    restore();
+    if (tab === active) setFindRoot(tab.doc, true);
   }
 }
 
 function updateTabLabel(tab: Tab) {
-  tab.tabEl.querySelector(".label")!.textContent = basename(tab.path);
-  tab.tabEl.title = tab.path;
-  if (tab === active) appWindow.setTitle(`${basename(tab.path)} — MD View`);
+  tab.tabEl.querySelector(".label")!.textContent = titleOf(tab.path);
+  tab.tabEl.title = isVirtual(tab.path) ? titleOf(tab.path) : tab.path;
+  if (tab === active) appWindow.setTitle(`${titleOf(tab.path)} — Markee`);
+}
+
+function watch(path: string) {
+  if (!isVirtual(path)) invoke("watch_file", { path });
+}
+function unwatch(path: string) {
+  if (!isVirtual(path)) invoke("unwatch_file", { path });
 }
 
 // ---- Tabok -------------------------------------------------------------------------
@@ -165,7 +224,7 @@ function createTab(path: string): Tab {
   tabEl.querySelector(".close")!.addEventListener("click", () => closeTab(tab));
   tabsEl.appendChild(tabEl);
   tabs.push(tab);
-  invoke("watch_file", { path });
+  watch(path);
   return tab;
 }
 
@@ -183,21 +242,21 @@ function activate(tab: Tab | null) {
     tab.tabEl.classList.add("active");
     tab.tabEl.scrollIntoView({ block: "nearest", inline: "nearest" });
     scroller.scrollTop = tab.scroll;
-    appWindow.setTitle(`${basename(tab.path)} — MD View`);
+    appWindow.setTitle(`${titleOf(tab.path)} — Markee`);
     setFindRoot(tab.doc);
   } else {
-    appWindow.setTitle("MD View");
+    appWindow.setTitle("Markee");
     renderWelcome();
     setFindRoot(null);
     scroller.scrollTop = 0;
   }
-  updateToc();
+  updateSidebar();
 }
 
 function closeTab(tab: Tab) {
   const i = tabs.indexOf(tab);
   if (i < 0) return;
-  invoke("unwatch_file", { path: tab.path });
+  unwatch(tab.path);
   closedPaths.push(tab.path);
   tabs.splice(i, 1);
   tab.tabEl.remove();
@@ -208,7 +267,7 @@ function closeTab(tab: Tab) {
   }
 }
 
-async function openFile(path: string, opts: { newTab?: boolean; background?: boolean } = {}) {
+async function openFile(path: string, opts: { background?: boolean } = {}) {
   const existing = tabs.find((t) => samePath(t.path, path));
   if (existing) {
     if (!opts.background) activate(existing);
@@ -232,9 +291,9 @@ async function navigate(tab: Tab, path: string, hash = "") {
 }
 
 async function switchPath(tab: Tab, path: string, scroll: number, hash = "") {
-  invoke("unwatch_file", { path: tab.path });
+  unwatch(tab.path);
   tab.path = path;
-  invoke("watch_file", { path });
+  watch(path);
   addRecent(path);
   await loadInto(tab, scroll, hash);
 }
@@ -270,20 +329,67 @@ async function showOpenDialog() {
     ],
   });
   if (!sel) return;
-  const list = Array.isArray(sel) ? sel : [sel];
-  for (const p of list) await openFile(p);
+  for (const p of Array.isArray(sel) ? sel : [sel]) await openFile(p);
 }
 
-// ---- Tartalomjegyzék ---------------------------------------------------------------
+async function showFolderDialog() {
+  const dir = await openDialog({ directory: true, defaultPath: folderRoot() ?? undefined });
+  if (typeof dir !== "string") return;
+  settings.folder = dir;
+  save("folder", dir);
+  showPane("files", true);
+  await setFolderRoot(dir);
+  setFolderActive(active?.path ?? null);
+}
 
-function updateToc() {
-  const show = settings.toc && !!active && active.toc.length > 1;
-  tocEl.hidden = !show;
-  $("btn-toc").classList.toggle("on", settings.toc);
-  if (!show || !active) return;
-  const min = Math.min(...active.toc.map((t) => t.level));
+// ---- Oldalsáv: tartalomjegyzék és fájlok ---------------------------------------------
+
+function showPane(pane: Pane, forceOpen = false) {
+  if (!forceOpen && settings.sidebar && settings.pane === pane) settings.sidebar = false;
+  else {
+    settings.sidebar = true;
+    settings.pane = pane;
+  }
+  save("sidebar", settings.sidebar);
+  save("pane", settings.pane);
+  updateSidebar();
+}
+
+function toggleSidebar() {
+  settings.sidebar = !settings.sidebar;
+  save("sidebar", settings.sidebar);
+  updateSidebar();
+}
+
+function updateSidebar() {
+  const docOpen = !!active;
+  sidebar.hidden = !settings.sidebar || (!docOpen && settings.pane === "toc" && !settings.folder);
+  $("btn-sidebar").classList.toggle("on", !sidebar.hidden);
+  for (const b of sidebar.querySelectorAll<HTMLElement>("[data-pane]"))
+    b.classList.toggle("on", b.dataset.pane === settings.pane);
+  tocEl.hidden = settings.pane !== "toc";
+  filesEl.hidden = settings.pane !== "files";
+  if (sidebar.hidden) return;
+  if (settings.pane === "toc") renderToc();
+  else syncFolder();
+}
+
+async function syncFolder() {
+  const path = active && !isVirtual(active.path) ? active.path : null;
+  const root = settings.folder ?? (path ? dirname(path) : null);
+  if (root) await setFolderRoot(root);
+  setFolderActive(path);
+}
+
+function renderToc() {
+  const toc = active?.toc ?? [];
+  if (toc.length === 0) {
+    tocEl.innerHTML = `<div class="tree-empty">Nincsenek címsorok.</div>`;
+    return;
+  }
+  const min = Math.min(...toc.map((t) => t.level));
   tocEl.replaceChildren(
-    ...active.toc
+    ...toc
       .filter((t) => t.level - min < 4)
       .map((t) => {
         const a = document.createElement("a");
@@ -311,7 +417,7 @@ function scrollToId(id: string) {
 
 let spyQueued = false;
 function spy() {
-  if (tocEl.hidden || !active) return;
+  if (sidebar.hidden || tocEl.hidden || !active) return;
   const top = scroller.getBoundingClientRect().top + 80;
   let current: string | null = null;
   for (const t of active.toc) {
@@ -340,6 +446,110 @@ scroller.addEventListener(
   { passive: true },
 );
 
+for (const b of sidebar.querySelectorAll<HTMLElement>("[data-pane]"))
+  b.onclick = () => showPane(b.dataset.pane as Pane, true);
+$("files-pick").onclick = showFolderDialog;
+initFolder((path, newTab) => openFile(path, { background: newTab }));
+
+// ---- Menü --------------------------------------------------------------------------------
+
+function openMenu() {
+  const needsDoc = !active || isVirtual(active.path);
+  for (const b of menu.querySelectorAll<HTMLButtonElement>("[data-needs-doc]")) b.disabled = needsDoc;
+  const check = (action: string, on: boolean) =>
+    menu.querySelector(`[data-action="${action}"]`)!.classList.toggle("checked", on);
+  check("toc", settings.sidebar && settings.pane === "toc");
+  check("files", settings.sidebar && settings.pane === "files");
+  check("wide", settings.wide);
+
+  const recent = load<string[]>("recent", []).slice(0, 5);
+  const box = $("menu-recent");
+  box.replaceChildren();
+  if (recent.length) {
+    const h = document.createElement("div");
+    h.className = "menu-label";
+    h.textContent = "Legutóbbi";
+    box.append(h, ...recent.map((p) => recentLink(p, () => (closeMenu(), openFile(p)), "button")));
+    for (const el of box.querySelectorAll("button")) el.classList.add("recent-item");
+  }
+  box.append(document.createElement("hr"));
+  menu.hidden = false;
+  $("btn-menu").classList.add("on");
+  (menu.querySelector("button:not(:disabled)") as HTMLElement | null)?.focus();
+}
+
+function closeMenu() {
+  menu.hidden = true;
+  $("btn-menu").classList.remove("on");
+}
+
+const toggleMenu = () => (menu.hidden ? openMenu() : closeMenu());
+
+$("btn-menu").addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleMenu();
+});
+document.addEventListener("mousedown", (e) => {
+  if (!menu.hidden && !menu.contains(e.target as Node) && !(e.target as HTMLElement).closest("#btn-menu")) closeMenu();
+});
+window.addEventListener("blur", closeMenu);
+
+const actions: Record<string, () => unknown> = {
+  open: showOpenDialog,
+  "open-folder": showFolderDialog,
+  reveal: () => active && !isVirtual(active.path) && revealItemInDir(active.path),
+  print: printDoc,
+  toc: () => showPane("toc"),
+  files: () => showPane("files"),
+  wide: toggleWidth,
+  "zoom-in": () => setZoom(settings.zoom + 0.1),
+  "zoom-out": () => setZoom(settings.zoom - 0.1),
+  "zoom-reset": () => setZoom(1),
+  help: () => openFile(HELP),
+  update: () => checkForUpdates(true),
+  about: showAbout,
+};
+const keepOpen = new Set(["zoom-in", "zoom-out", "zoom-reset"]);
+
+menu.addEventListener("click", (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button");
+  if (!btn || btn.disabled) return;
+  if (btn.dataset.themeSet) return setTheme(btn.dataset.themeSet as Theme);
+  const a = btn.dataset.action;
+  if (!a) return;
+  if (!keepOpen.has(a)) closeMenu();
+  actions[a]?.();
+});
+
+menu.addEventListener("keydown", (e) => {
+  const items = [...menu.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")];
+  const i = items.indexOf(document.activeElement as HTMLButtonElement);
+  if (e.key === "ArrowDown") items[(i + 1) % items.length]?.focus();
+  else if (e.key === "ArrowUp") items[(i - 1 + items.length) % items.length]?.focus();
+  else if (e.key === "Escape") closeMenu();
+  else return;
+  e.preventDefault();
+  e.stopPropagation();
+});
+
+// ---- Nyomtatás, névjegy -------------------------------------------------------------------
+
+function printDoc() {
+  if (!active) return;
+  closeMenu();
+  window.print();
+}
+
+const about = $<HTMLDialogElement>("about");
+(about.querySelector("img") as HTMLImageElement).src = iconUrl;
+for (const a of about.querySelectorAll<HTMLElement>("[data-href]")) a.onclick = () => openUrl(a.dataset.href!);
+
+async function showAbout() {
+  const v = await getVersion().catch(() => "?");
+  $("about-version").textContent = `Verzió ${v}`;
+  about.showModal();
+}
+
 // ---- Linkek és kódmásolás ----------------------------------------------------------
 
 docsEl.addEventListener("click", async (e) => {
@@ -363,6 +573,7 @@ docsEl.addEventListener("click", async (e) => {
     if (/^(https?|mailto):/i.test(href)) openUrl(href);
     return;
   }
+  if (isVirtual(active.path)) return;
   const [rel, hash] = splitHref(href);
   const path = resolvePath(dirname(active.path), rel);
   if (MD_EXT.test(path)) {
@@ -375,7 +586,7 @@ docsEl.addEventListener("click", async (e) => {
 
 docsEl.addEventListener("auxclick", (e) => {
   const a = (e.target as HTMLElement).closest<HTMLAnchorElement>("a[href]");
-  if (e.button !== 1 || !a || !active) return;
+  if (e.button !== 1 || !a || !active || isVirtual(active.path)) return;
   e.preventDefault();
   const href = a.getAttribute("href")!;
   if (href.startsWith("#") || isExternal(href)) return;
@@ -385,7 +596,14 @@ docsEl.addEventListener("auxclick", (e) => {
 
 // ---- Billentyűk és egér ---------------------------------------------------------------
 
+let altAlone = false;
+
 document.addEventListener("keydown", (e) => {
+  altAlone = e.key === "Alt" && !e.ctrlKey && !e.shiftKey;
+  if (e.key === "Alt") {
+    e.preventDefault();
+    return;
+  }
   const ctrl = e.ctrlKey || e.metaKey;
   const k = e.key.toLowerCase();
   let handled = true;
@@ -394,16 +612,20 @@ document.addEventListener("keydown", (e) => {
   else if (ctrl && e.key === "PageDown") cycleTab(1);
   else if (ctrl && e.key === "PageUp") cycleTab(-1);
   else if (ctrl && !e.shiftKey && k === "o") showOpenDialog();
+  else if (ctrl && e.shiftKey && k === "o") showFolderDialog();
   else if ((ctrl && !e.shiftKey && k === "w") || (ctrl && e.key === "F4")) active && closeTab(active);
   else if (ctrl && e.shiftKey && k === "t") {
     const p = closedPaths.pop();
     if (p) openFile(p);
   } else if (ctrl && !e.shiftKey && k === "f") openFind();
   else if (e.key === "F3") findStep(e.shiftKey ? -1 : 1);
+  else if (e.key === "Escape" && !menu.hidden) closeMenu();
   else if (e.key === "Escape" && findOpen()) closeFind();
-  else if (ctrl && !e.shiftKey && k === "b") toggleToc();
+  else if (ctrl && !e.shiftKey && k === "b") toggleSidebar();
+  else if (ctrl && e.shiftKey && k === "e") showPane("files");
   else if (ctrl && e.shiftKey && k === "l") cycleTheme();
   else if (ctrl && e.shiftKey && k === "w") toggleWidth();
+  else if (ctrl && !e.shiftKey && k === "p") printDoc();
   else if (ctrl && (e.key === "+" || e.key === "=")) setZoom(settings.zoom + 0.1);
   else if (ctrl && e.key === "-") setZoom(settings.zoom - 0.1);
   else if (ctrl && e.key === "0") setZoom(1);
@@ -412,6 +634,7 @@ document.addEventListener("keydown", (e) => {
     activate(n === 9 ? tabs[tabs.length - 1] : (tabs[n - 1] ?? active));
   } else if (e.altKey && e.key === "ArrowLeft") goBack();
   else if (e.altKey && e.key === "ArrowRight") goForward();
+  else if (e.key === "F1") openFile(HELP);
   else if (e.key === "F5" || (ctrl && k === "r")) active && loadInto(active, scroller.scrollTop);
   else if (e.key === "Home" && !isTyping(e)) scroller.scrollTop = 0;
   else if (e.key === "End" && !isTyping(e)) scroller.scrollTop = scroller.scrollHeight;
@@ -419,6 +642,16 @@ document.addEventListener("keydown", (e) => {
 
   if (handled) e.preventDefault();
 });
+
+// egymagában lenyomott Alt: menü (mint a Windows-alkalmazásokban)
+document.addEventListener("keyup", (e) => {
+  if (e.key === "Alt" && altAlone) {
+    e.preventDefault();
+    toggleMenu();
+  }
+  altAlone = false;
+});
+document.addEventListener("mousedown", () => (altAlone = false));
 
 function isTyping(e: KeyboardEvent) {
   return (e.target as HTMLElement).tagName === "INPUT";
@@ -459,11 +692,6 @@ tabsEl.addEventListener(
 
 // ---- Eszköztár --------------------------------------------------------------------------
 
-function toggleToc() {
-  settings.toc = !settings.toc;
-  save("toc", settings.toc);
-  updateToc();
-}
 function toggleWidth() {
   settings.wide = !settings.wide;
   save("wide", settings.wide);
@@ -471,15 +699,10 @@ function toggleWidth() {
 }
 function cycleTheme() {
   const order: Theme[] = ["system", "light", "dark"];
-  settings.theme = order[(order.indexOf(settings.theme) + 1) % order.length];
-  save("theme", settings.theme);
-  applySettings();
+  setTheme(order[(order.indexOf(settings.theme) + 1) % order.length]);
 }
 
-$("btn-open").onclick = showOpenDialog;
-$("btn-toc").onclick = toggleToc;
-$("btn-width").onclick = toggleWidth;
-$("btn-theme").onclick = cycleTheme;
+$("btn-sidebar").onclick = toggleSidebar;
 
 // ---- Élő újratöltés -------------------------------------------------------------------
 
@@ -528,6 +751,7 @@ async function start() {
   }
   await appWindow.show();
   await appWindow.setFocus();
+  if (import.meta.env.PROD) setTimeout(() => checkForUpdates(), 4000);
 }
 
 start();

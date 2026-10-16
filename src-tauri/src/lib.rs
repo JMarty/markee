@@ -59,6 +59,43 @@ fn file_exists(path: String) -> bool {
     Path::new(&path).is_file()
 }
 
+#[derive(serde::Serialize)]
+struct DirEntry {
+    name: String,
+    path: String,
+    is_dir: bool,
+}
+
+const MD_EXTS: [&str; 6] = ["md", "markdown", "mdown", "mkd", "mdx", "txt"];
+const SKIP_DIRS: [&str; 6] = ["node_modules", "target", "dist", "build", "__pycache__", "venv"];
+
+/// Egy mappa tartalma a mappanézethez: almappák és markdown fájlok, rendezve.
+#[tauri::command]
+fn list_dir(path: String) -> Result<Vec<DirEntry>, String> {
+    let mut out: Vec<DirEntry> = std::fs::read_dir(&path)
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if name.starts_with('.') {
+                return None;
+            }
+            let is_dir = e.file_type().ok()?.is_dir();
+            let keep = if is_dir {
+                !SKIP_DIRS.contains(&name.to_lowercase().as_str())
+            } else {
+                Path::new(&name)
+                    .extension()
+                    .and_then(|x| x.to_str())
+                    .is_some_and(|x| MD_EXTS.contains(&x.to_lowercase().as_str()))
+            };
+            keep.then(|| DirEntry { path: e.path().to_string_lossy().into_owned(), name, is_dir })
+        })
+        .collect();
+    out.sort_by(|a, b| b.is_dir.cmp(&a.is_dir).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase())));
+    Ok(out)
+}
+
 #[tauri::command]
 fn take_launch_files(state: State<LaunchFiles>) -> Vec<String> {
     std::mem::take(&mut *state.0.lock().unwrap())
@@ -157,6 +194,8 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(LaunchFiles(Mutex::new(launch)))
         .manage(Watch(Mutex::new(WatchState {
             watcher: None,
@@ -171,6 +210,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             read_file,
             file_exists,
+            list_dir,
             take_launch_files,
             watch_file,
             unwatch_file

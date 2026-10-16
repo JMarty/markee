@@ -3,27 +3,55 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MD View</title>
+    <title>Markee</title>
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
     <header id="titlebar">
+      <div id="toolbar-left">
+        <button id="btn-sidebar" class="icon-btn" title="Oldalsáv (Ctrl+B)">
+          <svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6 3v10"/></svg>
+        </button>
+      </div>
       <div id="tabs" role="tablist"></div>
       <div id="toolbar">
-        <button id="btn-open" title="Megnyitás (Ctrl+O)">
-          <svg viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z"/></svg>
-        </button>
-        <button id="btn-toc" title="Tartalomjegyzék (Ctrl+B)">
-          <svg viewBox="0 0 16 16"><path d="M3 4h10M3 8h7M3 12h9"/></svg>
-        </button>
-        <button id="btn-width" title="Olvasási szélesség (Ctrl+Shift+W)">
-          <svg viewBox="0 0 16 16"><path d="M2 8h12M4.5 5.5 2 8l2.5 2.5M11.5 5.5 14 8l-2.5 2.5"/></svg>
-        </button>
-        <button id="btn-theme" title="Téma (Ctrl+Shift+L)">
-          <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11a5.5 5.5 0 0 0 0-11z" class="fill"/></svg>
+        <button id="btn-menu" class="icon-btn" title="Menü (Alt)" aria-haspopup="menu">
+          <svg viewBox="0 0 16 16"><path d="M3 4.5h10M3 8h10M3 11.5h10"/></svg>
         </button>
       </div>
     </header>
+
+    <div id="menu" role="menu" hidden>
+      <button data-action="open"><span>Megnyitás…</span><kbd>Ctrl+O</kbd></button>
+      <button data-action="open-folder"><span>Mappa megnyitása…</span><kbd>Ctrl+Shift+O</kbd></button>
+      <div id="menu-recent"></div>
+      <button data-action="reveal" data-needs-doc><span>Megjelenítés az Intézőben</span></button>
+      <button data-action="print" data-needs-doc><span>Nyomtatás…</span><kbd>Ctrl+P</kbd></button>
+      <hr />
+      <button data-action="toc" data-check><span>Tartalomjegyzék</span><kbd>Ctrl+B</kbd></button>
+      <button data-action="files" data-check><span>Fájlok</span><kbd>Ctrl+Shift+E</kbd></button>
+      <button data-action="wide" data-check><span>Széles nézet</span><kbd>Ctrl+Shift+W</kbd></button>
+      <div class="menu-row">
+        <span>Téma</span>
+        <div class="seg" id="theme-seg">
+          <button data-theme-set="system">Rendszer</button>
+          <button data-theme-set="light">Világos</button>
+          <button data-theme-set="dark">Sötét</button>
+        </div>
+      </div>
+      <div class="menu-row">
+        <span>Nagyítás</span>
+        <div class="seg">
+          <button data-action="zoom-out" title="Ctrl+−">−</button>
+          <button data-action="zoom-reset" id="zoom-label" title="Ctrl+0">100%</button>
+          <button data-action="zoom-in" title="Ctrl++">+</button>
+        </div>
+      </div>
+      <hr />
+      <button data-action="help"><span>Súgó</span><kbd>F1</kbd></button>
+      <button data-action="update"><span>Frissítések keresése</span></button>
+      <button data-action="about"><span>Névjegy</span></button>
+    </div>
 
     <div id="findbar" hidden>
       <input id="find-input" type="text" placeholder="Keresés…" spellcheck="false" />
@@ -34,11 +62,26 @@
     </div>
 
     <main id="main">
-      <nav id="toc" hidden></nav>
+      <aside id="sidebar" hidden>
+        <div class="seg sidebar-seg">
+          <button data-pane="toc">Tartalom</button>
+          <button data-pane="files">Fájlok</button>
+        </div>
+        <nav id="toc"></nav>
+        <div id="files" hidden>
+          <div id="files-head">
+            <span id="files-root" title=""></span>
+            <button id="files-pick" class="icon-btn" title="Másik mappa megnyitása (Ctrl+Shift+O)">
+              <svg viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z"/></svg>
+            </button>
+          </div>
+          <div id="tree" role="tree"></div>
+        </div>
+      </aside>
       <div id="scroller">
         <div id="docs"></div>
         <section id="welcome">
-          <h1>MD View</h1>
+          <h1>Markee</h1>
           <p>Húzz ide egy Markdown fájlt, vagy nyomd meg a <kbd>Ctrl</kbd>+<kbd>O</kbd> billentyűt.</p>
           <div id="recent-wrap" hidden>
             <h2>Legutóbbi fájlok</h2>
@@ -48,13 +91,34 @@
             <span><kbd>Ctrl</kbd>+<kbd>Tab</kbd> következő tab</span>
             <span><kbd>Ctrl</kbd>+<kbd>W</kbd> tab bezárása</span>
             <span><kbd>Ctrl</kbd>+<kbd>F</kbd> keresés</span>
-            <span><kbd>Ctrl</kbd>+<kbd>B</kbd> tartalomjegyzék</span>
+            <span><kbd>Ctrl</kbd>+<kbd>B</kbd> oldalsáv</span>
             <span><kbd>Ctrl</kbd>+<kbd>+</kbd>/<kbd>−</kbd> zoom</span>
-            <span><kbd>Alt</kbd>+<kbd>←</kbd> vissza</span>
+            <span><kbd>F1</kbd> súgó</span>
           </div>
         </section>
       </div>
     </main>
+
+    <div id="update-bar" hidden>
+      <span id="update-text"></span>
+      <button id="update-go" class="primary">Frissítés most</button>
+      <button id="update-later">Később</button>
+    </div>
+
+    <dialog id="about">
+      <img alt="" width="72" height="72" />
+      <h2>Markee</h2>
+      <p id="about-version"></p>
+      <p>Gyors, könnyű Markdown-nézegető Windowsra.</p>
+      <p class="links">
+        <a data-href="https://github.com/JMarty/markee">GitHub</a> ·
+        <a data-href="https://github.com/JMarty/markee/issues">Hibabejelentés</a> ·
+        <a data-href="https://github.com/JMarty/markee/blob/main/LICENSE">MIT licenc</a>
+      </p>
+      <p class="small">© 2026 Márton Janklovics</p>
+      <form method="dialog"><button class="primary">Bezárás</button></form>
+    </dialog>
+
     <div id="drop-overlay" hidden><div>Engedd el a megnyitáshoz</div></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

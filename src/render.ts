@@ -3,6 +3,7 @@ import taskLists from "markdown-it-task-lists";
 import hljs from "highlight.js/lib/common";
 import DOMPurify from "dompurify";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { extrasPlugin } from "./extras";
 
 export interface TocItem {
   level: number;
@@ -23,7 +24,9 @@ const md = new MarkdownIt({
     }
     return "";
   },
-}).use(taskLists, { enabled: false });
+})
+  .use(taskLists, { enabled: false })
+  .use(extrasPlugin);
 
 // ---- Útvonalak -----------------------------------------------------------
 

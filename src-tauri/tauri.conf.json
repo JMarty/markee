@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MD View",
-  "version": "0.1.0",
-  "identifier": "hu.mdview.app",
+  "productName": "Markee",
+  "version": "0.2.0",
+  "identifier": "io.github.jmarty.markee",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "MD View",
+        "title": "Markee",
         "width": 1100,
         "height": 800,
         "minWidth": 480,
@@ -39,13 +39,24 @@
     "fileAssociations": [
       {
         "ext": ["md", "markdown", "mdown", "mkd", "mdx"],
-        "name": "MDView.Markdown",
+        "name": "Markee.Markdown",
         "description": "Markdown dokumentum",
         "role": "Viewer"
       }
     ],
+    "createUpdaterArtifacts": true,
+    "copyright": "© 2026 Márton Janklovics – MIT",
+    "publisher": "Márton Janklovics",
+    "homepage": "https://github.com/JMarty/markee",
     "windows": {
       "nsis": { "installMode": "currentUser", "installerHooks": "./windows/hooks.nsh" }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE1N0M5MzIzRTNCQUZBODYKUldTRytycmpJNU44RllxUkRTVDBLbDhsKzVxcGZjMXBCZExTaWRiMUo5T0tGamZtSzlST1RtbGcK",
+      "endpoints": ["https://github.com/JMarty/markee/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
     }
   }
 }

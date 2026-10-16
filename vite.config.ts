@@ -3,5 +3,6 @@ import { defineConfig } from "vite";
 export default defineConfig({
   clearScreen: false,
   server: { port: 1420, strictPort: true },
-  build: { target: "chrome120", outDir: "dist", sourcemap: false },
+  // a Mermaid lustán betöltött darabjai nagyok, de csak diagramos dokumentumnál töltődnek be
+  build: { target: "chrome120", outDir: "dist", sourcemap: false, chunkSizeWarningLimit: 2000 },
 });

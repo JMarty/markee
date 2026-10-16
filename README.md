@@ -1,17 +1,17 @@
-# MD View
+# Markee
 
-**Gyors, könnyű Markdown-nézegető Windowsra.** Dupla kattintás egy `.md` fájlon, és már olvasod is: tabokkal, tartalomjegyzékkel, kereséssel, élő frissítéssel.
+**Gyors, könnyű Markdown-nézegető Windowsra.** Dupla kattintás egy `.md` fájlon, és már olvasod is: tabokkal, tartalomjegyzékkel, kereséssel, képletekkel, diagramokkal, élő frissítéssel.
 
 *A fast, lightweight Markdown viewer for Windows, built with Tauri.*
 
-> ⚠️ Korai verzió (0.1). A név, az ikon, a súgó, a menü és az automatikus frissítés még tervezés alatt áll – lásd az [ütemtervet](#ütemterv).
+> Korai verzió. A végleges ikon még készül – lásd az [ütemtervet](#ütemterv).
 
 ## Miért?
 
-A Markdown nyersen olvasható, de renderelve az igazi. A meglévő megoldások vagy nehézkesek (egy teljes IDE elindítása egy README miatt), vagy inkább szerkesztők, mint nézegetők. Az MD View egyetlen dologra készült: **megnyitni és szépen megmutatni** a Markdown fájlokat – azonnal.
+A Markdown nyersen olvasható, de renderelve az igazi. A meglévő megoldások vagy nehézkesek (egy teljes IDE elindítása egy README miatt), vagy inkább szerkesztők, mint nézegetők. A Markee egyetlen dologra készült: **megnyitni és szépen megmutatni** a Markdown fájlokat – azonnal.
 
-- 🪶 **Kicsi**: ~1,5 MB-os telepítő, ~5 MB-os program (Tauri + a Windowsba épített WebView2)
-- ⚡ **Gyors**: natív indulás, nincs beépített böngészőmotor
+- 🪶 **Kicsi**: ~4,5 MB-os telepítő (Tauri + a Windowsba épített WebView2)
+- ⚡ **Gyors**: natív indulás; a nagy könyvtárak (Mermaid, KaTeX) csak akkor töltődnek be, ha a dokumentumban szükség van rájuk
 - 🎯 **Egyszerű**: nincs szerkesztő, nincs fiók, nincs felhő
 
 ## Funkciók
@@ -20,40 +20,47 @@ A Markdown nyersen olvasható, de renderelve az igazi. A meglévő megoldások v
 - **Fájltársítás** – `.md`, `.markdown`, `.mdown`, `.mkd`, `.mdx`
 - **GitHub-stílusú Markdown** – táblázatok, feladatlisták, áthúzás, automatikus linkek, `<details>`
 - **Kódszínezés** – több mint 30 nyelv (highlight.js), másolás gombbal
-- **Tartalomjegyzék** – oldalsáv a címsorokból, kiemeli az aktuális szakaszt
+- **Képletek** – `$…$` és `$$…$$` (KaTeX)
+- **Diagramok** – ` ```mermaid ` blokkok (Mermaid), a témához igazodva
+- **Oldalsáv** – tartalomjegyzék az aktuális szakasz kiemelésével, és **mappanézet** a dokumentációs könyvtárak böngészéséhez
 - **Keresés** – `Ctrl+F`, találatszámlálóval
 - **Linkek követése** – a relatív `.md` linkek az appon belül nyílnak meg, vissza/előre navigációval; a külső linkek a böngészőben
 - **Élő frissítés** – ha a fájl máshol módosul, azonnal frissül, a görgetési pozíció megmarad
-- **Relatív képek** – a fájl mappájához képest oldja fel őket
-- **Világos / sötét téma** – vagy a rendszer beállítását követi
-- **Zoom és olvasási szélesség**
-- **Legutóbbi fájlok** a kezdőképernyőn
-- **Drag & drop**
-- **Biztonság** – a dokumentumba ágyazott HTML-t szűri (DOMPurify), szkriptek nem futnak
+- **Nyomtatás / PDF** – `Ctrl+P` (PDF-be a „Microsoft Print to PDF” nyomtatóval)
+- **Menü** (☰ vagy `Alt`), beépített **súgó** (`F1`) és névjegy
+- **Automatikus frissítés** – induláskor csendben ellenőrzi, és egy kattintással frissít
+- **Világos / sötét téma**, zoom, olvasási szélesség, legutóbbi fájlok, drag & drop
+- **Biztonság** – a dokumentumba ágyazott HTML-t szűri (DOMPurify), szkriptek nem futnak; a frissítések digitálisan aláírtak
 
 ## Billentyűparancsok
 
 | Parancs | Művelet |
 |---|---|
-| `Ctrl+O` | Fájl megnyitása |
+| `Ctrl+O` / `Ctrl+Shift+O` | Fájl / mappa megnyitása |
 | `Ctrl+W` / középső kattintás | Tab bezárása |
 | `Ctrl+Shift+T` | Bezárt tab visszaállítása |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | Következő / előző tab |
 | `Ctrl+1` … `Ctrl+9` | Ugrás adott tabra |
 | `Ctrl+F`, `F3` / `Shift+F3` | Keresés, következő / előző találat |
-| `Ctrl+B` | Tartalomjegyzék be/ki |
+| `Ctrl+B` | Oldalsáv be/ki |
+| `Ctrl+Shift+E` | Fájlok panel |
+| `Ctrl+P` | Nyomtatás |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` / `Ctrl+görgő` | Zoom |
 | `Ctrl+Shift+W` | Olvasási szélesség váltása |
 | `Ctrl+Shift+L` | Téma: rendszer → világos → sötét |
 | `Alt+←` / `Alt+→` | Vissza / előre (linkek követése után) |
+| `Alt` | Menü |
+| `F1` | Súgó |
 | `F5` | Újratöltés |
 | `Ctrl+kattintás` linken | Megnyitás új tabban |
 
 ## Telepítés
 
-Töltsd le a legfrissebb `…_x64-setup.exe` telepítőt a [Releases](../../releases) oldalról, és futtasd. Rendszergazdai jog nem kell (a telepítés felhasználói szintű).
+Töltsd le a legfrissebb `…_x64-setup.exe` telepítőt a [Releases](../../releases/latest) oldalról, és futtasd. Rendszergazdai jog nem kell (a telepítés felhasználói szintű). Ezután a Markee magától frissül.
 
-**Alapértelmezett nézegetőnek** a Windows nem engedi automatikusan beállítani, ezért egyszer kézzel kell: jobb klikk egy `.md` fájlon → *Társítás* → *Másik alkalmazás választása* → **MD View** → *Mindig*.
+**Alapértelmezett nézegetőnek** a Windows nem engedi automatikusan beállítani, ezért egyszer kézzel kell: jobb klikk egy `.md` fájlon → *Társítás* → *Másik alkalmazás választása* → **Markee** → *Mindig*.
+
+A telepítő egyelőre nincs Windows-kódaláírással ellátva, ezért a SmartScreen figyelmeztethet („További információ” → „Futtatás mindenképp”).
 
 ## Fordítás forrásból
 
@@ -70,32 +77,46 @@ npm run tauri dev      # fejlesztői mód, élő újratöltéssel
 npm run tauri build    # release build + telepítő (src-tauri/target/release/bundle/nsis/)
 ```
 
+A release build a frissítőcsomagot is aláírja, ehhez a `TAURI_SIGNING_PRIVATE_KEY` (és `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) környezeti változó kell. Saját buildhez generálj kulcsot (`npx tauri signer generate`), vagy állítsd a `bundle.createUpdaterArtifacts` értékét `false`-ra.
+
 A felület Tauri nélkül, böngészőben is kipróbálható (mockolt API-val): `npm run dev`, majd <http://localhost:1420/dev/preview.html>.
+
+## Új verzió kiadása
+
+1. Verziószám átírása: `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`
+2. Commit, majd címke: `git tag v0.3.0 && git push origin main v0.3.0`
+3. A [Release munkafolyamat](.github/workflows/release.yml) lefordítja, aláírja és közzéteszi; a telepített példányok a `latest.json` alapján frissülnek
 
 ## Felépítés
 
 ```
 src/
-  main.ts       tabok, navigáció, billentyűk, tartalomjegyzék, élő frissítés
+  main.ts       tabok, navigáció, menü, oldalsáv, billentyűk, élő frissítés
   render.ts     Markdown → HTML (markdown-it, highlight.js, DOMPurify), útvonalak
+  extras.ts     képletek (KaTeX) és diagramok (Mermaid), lusta betöltéssel
+  folder.ts     mappanézet
   find.ts       keresés (CSS Custom Highlight API – nem módosítja a DOM-ot)
-  styles.css    téma és tipográfia
+  updater.ts    automatikus frissítés
+  help.md       beépített súgó
+  styles.css    téma, tipográfia, nyomtatási nézet
 src-tauri/
-  src/lib.rs    fájlolvasás, fájlfigyelés (notify), egypéldányos működés
+  src/lib.rs    fájlolvasás, mappalistázás, fájlfigyelés (notify), egypéldányos működés
   tauri.conf.json
   windows/hooks.nsh   telepítő-kiegészítés a „Társítás” listához
+.github/workflows/    CI és automatikus kiadás
 samples/        tesztdokumentumok
 ```
 
 ## Ütemterv
 
-- [ ] Végleges név és ikon
-- [ ] Súgó
-- [ ] Menü (fájl, nézet, súgó)
-- [ ] Automatikus frissítés
-- [ ] Mermaid diagramok, KaTeX matematika
-- [ ] Nyomtatás / PDF export
-- [ ] Mappanézet (dokumentációs könyvtárak böngészése)
+- [x] Név
+- [ ] Végleges ikon
+- [x] Súgó, menü, névjegy
+- [x] Automatikus frissítés
+- [x] Mermaid diagramok, KaTeX matematika
+- [x] Nyomtatás / PDF
+- [x] Mappanézet
+- [ ] Windows-kódaláírás ([SignPath Foundation](https://signpath.org/) – ingyenes open source projekteknek)
 
 ## Licenc
 

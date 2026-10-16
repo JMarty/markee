@@ -3,7 +3,7 @@
 <html lang="hu">
   <head>
     <meta charset="UTF-8" />
-    <title>MD View (preview)</title>
+    <title>Markee (preview)</title>
     <link rel="stylesheet" href="/src/styles.css" />
     <script>
       const ROOT = "C:\\dev\\markdown viewer\\";
@@ -25,6 +25,16 @@
           }
           if (cmd === "take_launch_files") return [ROOT + "samples\\demo.md", ROOT + "samples\\masik.md"];
           if (cmd === "file_exists") return true;
+          if (cmd === "plugin:app|version") return "0.2.0-dev";
+          if (cmd === "list_dir") {
+            const dir = args.path.replace(/\\$/, "");
+            if (dir.endsWith("samples")) return [
+              { name: "sub", path: dir + "\\sub", is_dir: true },
+              { name: "demo.md", path: dir + "\\demo.md", is_dir: false },
+              { name: "masik.md", path: dir + "\\masik.md", is_dir: false },
+            ];
+            return [{ name: "nincs.md", path: dir + "\\nincs.md", is_dir: false }];
+          }
           return null;
         },
       };
