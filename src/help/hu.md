@@ -82,6 +82,14 @@ flowchart LR
   A[Markdown fájl] --> B(Markee) --> C{{Szép dokumentum}}
 ```
 
+## Tabok visszaállítása
+
+A Markee – a Jegyzettömbhöz hasonlóan – megjegyzi a nyitott tabokat és a görgetési pozíciót, és a következő indításkor visszaállítja őket. Kikapcsolható: menü → *Tabok visszaállítása induláskor*.
+
+## Nyelv
+
+A Markee a Windows nyelvét követi (magyar, angol, német, spanyol). Átállítás: menü → *Nyelv*.
+
 ## Frissítések
 
 A Markee induláskor csendben megnézi, van-e újabb verzió. Ha van, a jobb alsó sarokban szól – egy kattintással frissíthetsz. Kézzel: menü → *Frissítések keresése*.

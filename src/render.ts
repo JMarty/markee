@@ -4,6 +4,7 @@ import hljs from "highlight.js/lib/common";
 import DOMPurify from "dompurify";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { extrasPlugin } from "./extras";
+import { t } from "./i18n";
 
 export interface TocItem {
   level: number;
@@ -126,7 +127,7 @@ export function render(source: string, filePath: string): { frag: DocumentFragme
   for (const pre of frag.querySelectorAll("pre")) {
     const btn = document.createElement("button");
     btn.className = "copy-btn";
-    btn.textContent = "Másolás";
+    btn.textContent = t("doc.copy");
     pre.appendChild(btn);
   }
 

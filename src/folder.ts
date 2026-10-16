@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { basename, samePath } from "./render";
+import { t } from "./i18n";
 
 interface Entry {
   name: string;
@@ -77,11 +78,12 @@ async function buildList(dir: string, depth: number): Promise<HTMLElement> {
     entries = await invoke<Entry[]>("list_dir", { path: dir });
   } catch (e) {
     ul.innerHTML = `<div class="tree-empty"></div>`;
-    ul.firstElementChild!.textContent = `Nem olvasható: ${e}`;
+    ul.firstElementChild!.textContent = t("pane.unreadable", String(e));
     return ul;
   }
   if (!entries.length && depth === 0) {
-    ul.innerHTML = `<div class="tree-empty">Nincs Markdown fájl ebben a mappában.</div>`;
+    ul.innerHTML = `<div class="tree-empty"></div>`;
+    ul.firstElementChild!.textContent = t("pane.noMarkdown");
   }
   for (const e of entries) {
     const row = document.createElement("div");

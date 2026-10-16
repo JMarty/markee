@@ -1,13 +1,40 @@
 <!doctype html>
-<!-- Csak fejlesztéshez: a felület böngészőben, Tauri nélkül (mockolt API-val). -->
-<html lang="hu">
+<!--
+  Csak fejlesztéshez: a felület böngészőben, Tauri nélkül, mockolt API-val.
+  Paraméterek (a README képernyőképeihez is):
+    ?lang=en|hu|de|es  &theme=light|dark  &files=showcase,demo (samples/*.md, üres = kezdőképernyő)
+    &active=0  &pane=toc|files|none  &menu  &find=szöveg  &scroll=px  &recent
+-->
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>Markee (preview)</title>
     <link rel="stylesheet" href="/src/styles.css" />
     <script>
       const ROOT = "C:\\dev\\markdown viewer\\";
+      const q = new URLSearchParams(location.search);
       const toUrl = (p) => "/" + p.replace(ROOT, "").replace(/\\/g, "/");
+      const files = (q.get("files") ?? "showcase,demo").split(",").filter(Boolean)
+        .map((f) => ROOT + "samples\\" + f + ".md");
+
+      // &keep: az előző betöltés localStorage-a marad (munkamenet-visszaállítás teszteléséhez)
+      const keep = q.has("keep");
+      if (!keep) localStorage.clear();
+      const set = (k, v) => keep || localStorage.setItem(k, JSON.stringify(v));
+      set("lang", q.get("lang") ?? "en");
+      set("theme", q.get("theme") ?? "light");
+      set("restore", false);
+      set("sidebar", q.get("pane") !== "none");
+      set("pane", q.get("pane") === "files" ? "files" : "toc");
+      if (q.has("recent"))
+        set("recent", [
+          "C:\\Projects\\atlas\\README.md",
+          "C:\\Projects\\atlas\\docs\\architecture.md",
+          "C:\\Notes\\meeting-notes.md",
+          "C:\\Projects\\website\\CHANGELOG.md",
+          "D:\\Writing\\blog\\markdown-tips.md",
+        ]);
+
       let cbId = 0;
       window.__TAURI_INTERNALS__ = {
         metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
@@ -20,20 +47,18 @@
         invoke: async (cmd, args) => {
           if (cmd === "read_file") {
             const r = await fetch(toUrl(args.path));
-            if (!r.ok) throw "nem található";
+            if (!r.ok) throw "not found";
             return r.text();
           }
-          if (cmd === "take_launch_files") return [ROOT + "samples\\demo.md", ROOT + "samples\\masik.md"];
+          if (cmd === "take_launch_files") return files;
           if (cmd === "file_exists") return true;
-          if (cmd === "plugin:app|version") return "0.2.0-dev";
+          if (cmd === "plugin:app|version") return "0.3.0";
           if (cmd === "list_dir") {
             const dir = args.path.replace(/\\$/, "");
-            if (dir.endsWith("samples")) return [
-              { name: "sub", path: dir + "\\sub", is_dir: true },
-              { name: "demo.md", path: dir + "\\demo.md", is_dir: false },
-              { name: "masik.md", path: dir + "\\masik.md", is_dir: false },
-            ];
-            return [{ name: "nincs.md", path: dir + "\\nincs.md", is_dir: false }];
+            const e = (name, is_dir = false) => ({ name, path: dir + "\\" + name, is_dir });
+            if (dir.endsWith("samples")) return [e("docs", true), e("guides", true), e("demo.md"), e("masik.md"), e("showcase.md")];
+            if (dir.endsWith("docs")) return [e("api", true), e("architecture.md"), e("deployment.md"), e("faq.md")];
+            return [e("getting-started.md"), e("configuration.md")];
           }
           return null;
         },
@@ -45,14 +70,26 @@
     // az index.html törzsét használjuk, hogy ne legyen két példány a markupból
     fetch("/index.html")
       .then((r) => r.text())
-      .then((html) => {
+      .then(async (html) => {
         const doc = new DOMParser().parseFromString(html, "text/html");
         doc.querySelectorAll("script").forEach((s) => s.remove());
         document.body.innerHTML = doc.body.innerHTML;
-        const s = document.createElement("script");
-        s.type = "module";
-        s.src = "/src/main.ts";
-        document.body.appendChild(s);
+        await import("/src/main.ts");
+        await new Promise((r) => setTimeout(r, 1500));
+        if (q.has("active"))
+          document.querySelectorAll(".tab")[+q.get("active")]
+            ?.dispatchEvent(new MouseEvent("mousedown", { button: 0, bubbles: true }));
+        await new Promise((r) => setTimeout(r, 1200));
+        if (q.has("scroll")) document.getElementById("scroller").scrollTop = +q.get("scroll");
+        if (q.has("find")) {
+          document.dispatchEvent(new KeyboardEvent("keydown", { key: "f", ctrlKey: true, bubbles: true }));
+          const inp = document.getElementById("find-input");
+          inp.value = q.get("find");
+          inp.dispatchEvent(new Event("input"));
+          inp.blur();
+        }
+        if (q.has("menu")) document.getElementById("btn-menu").click();
+        document.body.dataset.ready = "1";
       });
   </script>
 </html>

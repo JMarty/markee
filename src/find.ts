@@ -1,6 +1,8 @@
 // Keresés a dokumentumban a CSS Custom Highlight API-val: nem módosítja a DOM-ot,
 // így nagy dokumentumban is gyors, és a tab váltása sem rontja el.
 
+import { t } from "./i18n";
+
 const bar = document.getElementById("findbar")!;
 const input = document.getElementById("find-input") as HTMLInputElement;
 const count = document.getElementById("find-count")!;
@@ -38,7 +40,7 @@ function search(keepPosition = false) {
     }
   }
   if (!ranges.length) {
-    count.textContent = "Nincs találat";
+    count.textContent = t("find.none");
     bar.classList.add("nomatch");
     return;
   }

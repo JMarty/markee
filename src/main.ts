@@ -10,8 +10,11 @@ import { initFind, openFind, closeFind, findOpen, findStep, setFindRoot } from "
 import { enhance, rethemeDiagrams } from "./extras";
 import { initFolder, setFolderRoot, setFolderActive, folderRoot } from "./folder";
 import { checkForUpdates } from "./updater";
-import helpText from "./help.md?raw";
+import { t, tips, setLang, getLang, detectLang, applyI18n, LANGS, type Lang } from "./i18n";
 import iconUrl from "./assets/icon.svg";
+
+const helpDocs = import.meta.glob<string>("./help/*.md", { query: "?raw", import: "default", eager: true });
+const helpText = () => helpDocs[`./help/${getLang()}.md`] ?? helpDocs["./help/en.md"];
 
 // ---- Állapot -----------------------------------------------------------------
 
@@ -32,9 +35,9 @@ interface Tab {
 }
 
 /** Beépített dokumentumok (pl. súgó) – nem fájlból jönnek, nem figyeljük őket. */
-const HELP = "markee:súgó";
+const HELP = "markee:help";
 const isVirtual = (p: string) => p.startsWith("markee:");
-const titleOf = (p: string) => (p === HELP ? "Súgó" : basename(p));
+const titleOf = (p: string) => (p === HELP ? t("doc.help") : basename(p));
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const tabsEl = $("tabs");
@@ -80,7 +83,86 @@ const settings = {
   pane: load<Pane>("pane", "toc"),
   /** kézzel választott mappa a Fájlok panelhez; ha nincs, az aktív fájl mappáját követi */
   folder: load<string | null>("folder", null),
+  lang: load<Lang | null>("lang", null),
+  /** nyitott tabok visszaállítása induláskor (mint a Jegyzettömbben) */
+  restore: load("restore", true),
 };
+
+function changeLang(l: Lang) {
+  settings.lang = l;
+  save("lang", l);
+  setLang(l);
+  renderLangSeg();
+  for (const tab of tabs) {
+    if (tab.path === HELP) loadInto(tab, tab === active ? scroller.scrollTop : tab.scroll);
+    updateTabLabel(tab);
+    tab.tabEl.querySelector<HTMLElement>(".close")!.title = t("title.closeTab");
+  }
+  if (!active) renderWelcome();
+  updateSidebar();
+}
+
+function renderLangSeg() {
+  $("lang-seg").replaceChildren(
+    ...LANGS.map(({ code, name }) => {
+      const b = document.createElement("button");
+      b.textContent = code.toUpperCase();
+      b.title = name;
+      b.dataset.lang = code;
+      b.classList.toggle("on", code === getLang());
+      return b;
+    }),
+  );
+}
+
+// ---- Munkamenet: nyitott tabok mentése és visszaállítása -------------------------
+
+interface Session {
+  tabs: { path: string; scroll: number }[];
+  active: number;
+}
+
+let sessionReady = false;
+let sessionTimer = 0;
+
+function saveSession() {
+  if (!sessionReady) return;
+  if (active) active.scroll = scroller.scrollTop;
+  const s: Session = {
+    tabs: tabs.map((t) => ({ path: t.path, scroll: Math.round(t.scroll) })),
+    active: active ? tabs.indexOf(active) : -1,
+  };
+  save("session", settings.restore ? s : null);
+}
+
+function queueSaveSession() {
+  clearTimeout(sessionTimer);
+  sessionTimer = window.setTimeout(saveSession, 400);
+}
+
+async function restoreSession() {
+  const s = load<Session | null>("session", null);
+  if (!settings.restore || !s?.tabs.length) return;
+  const existing = await Promise.all(
+    s.tabs.map((x) => (isVirtual(x.path) ? true : invoke<boolean>("file_exists", { path: x.path }).catch(() => false))),
+  );
+  const restored: Tab[] = [];
+  s.tabs.forEach((x, i) => {
+    if (!existing[i] || tabs.some((t) => samePath(t.path, x.path))) return;
+    const tab = createTab(x.path);
+    tab.scroll = x.scroll;
+    restored.push(tab);
+    if (i === s.active) activate(tab);
+  });
+  if (!active && restored.length) activate(restored[0]);
+  await Promise.all(restored.map((tab) => loadInto(tab, tab.scroll)));
+}
+
+function toggleRestore() {
+  settings.restore = !settings.restore;
+  save("restore", settings.restore);
+  saveSession();
+}
 
 function applySettings() {
   const root = document.documentElement;
@@ -135,24 +217,53 @@ function recentLink(p: string, onClick: () => void, tag: "a" | "button" = "a"): 
   return a;
 }
 
+let tipIndex = Math.floor(Math.random() * 100);
+
 function renderWelcome() {
   const list = load<string[]>("recent", []);
   $("recent").replaceChildren(
     ...list.map((p) => {
       const li = document.createElement("li");
       li.appendChild(recentLink(p, () => openFile(p)));
+      const x = document.createElement("button");
+      x.className = "remove";
+      x.textContent = "✕";
+      x.title = t("welcome.remove");
+      x.onclick = () => {
+        save("recent", load<string[]>("recent", []).filter((r) => !samePath(r, p)));
+        renderWelcome();
+      };
+      li.appendChild(x);
       return li;
     }),
   );
-  $("recent-wrap").hidden = list.length === 0;
+  $("recent-empty").hidden = list.length > 0;
+  $("recent-clear").hidden = list.length === 0;
+  $("default-card").hidden = load("defaultHintDismissed", false);
+  const all = tips();
+  $("tip").textContent = all[tipIndex % all.length];
 }
+
+$("recent-clear").onclick = () => {
+  save("recent", []);
+  renderWelcome();
+};
+$("default-dismiss").onclick = () => {
+  save("defaultHintDismissed", true);
+  renderWelcome();
+};
+$("default-open").onclick = () => openUrl("ms-settings:defaultapps");
+$("welcome").addEventListener("click", (e) => {
+  const a = (e.target as HTMLElement).closest<HTMLElement>("[data-action]")?.dataset.action;
+  if (a) actions[a]?.();
+});
 
 // ---- Fájlok betöltése ------------------------------------------------------------
 
 async function loadInto(tab: Tab, scroll = 0, hash = "") {
   let frag: DocumentFragment;
   try {
-    const src = tab.path === HELP ? helpText : await invoke<string>("read_file", { path: tab.path });
+    const src = tab.path === HELP ? helpText() : await invoke<string>("read_file", { path: tab.path });
     const r = render(src, tab.path);
     frag = r.frag;
     tab.toc = r.toc;
@@ -160,7 +271,7 @@ async function loadInto(tab: Tab, scroll = 0, hash = "") {
     frag = document.createDocumentFragment();
     const div = document.createElement("div");
     div.className = "error";
-    div.textContent = `A fájl nem olvasható: ${tab.path}\n${e}`;
+    div.textContent = `${t("doc.unreadable", tab.path)}\n${e}`;
     frag.appendChild(div);
     tab.toc = [];
   }
@@ -206,7 +317,8 @@ function createTab(path: string): Tab {
   const tabEl = document.createElement("div");
   tabEl.className = "tab";
   tabEl.setAttribute("role", "tab");
-  tabEl.innerHTML = `<span class="label"></span><button class="close" title="Bezárás (Ctrl+W)">✕</button>`;
+  tabEl.innerHTML = `<span class="label"></span><button class="close">✕</button>`;
+  tabEl.querySelector<HTMLElement>(".close")!.title = t("title.closeTab");
   const doc = document.createElement("article");
   doc.className = "markdown-body";
   doc.hidden = true;
@@ -225,11 +337,12 @@ function createTab(path: string): Tab {
   tabsEl.appendChild(tabEl);
   tabs.push(tab);
   watch(path);
+  saveSession();
   return tab;
 }
 
 function activate(tab: Tab | null) {
-  if (active === tab) return;
+  if (active === tab && tab) return;
   if (active) {
     active.scroll = scroller.scrollTop;
     active.doc.hidden = true;
@@ -251,6 +364,7 @@ function activate(tab: Tab | null) {
     scroller.scrollTop = 0;
   }
   updateSidebar();
+  saveSession();
 }
 
 function closeTab(tab: Tab) {
@@ -265,6 +379,7 @@ function closeTab(tab: Tab) {
     active = null;
     activate(tabs[Math.min(i, tabs.length - 1)] ?? null);
   }
+  saveSession();
 }
 
 async function openFile(path: string, opts: { background?: boolean } = {}) {
@@ -295,6 +410,7 @@ async function switchPath(tab: Tab, path: string, scroll: number, hash = "") {
   tab.path = path;
   watch(path);
   addRecent(path);
+  saveSession();
   await loadInto(tab, scroll, hash);
 }
 
@@ -324,8 +440,8 @@ async function showOpenDialog() {
   const sel = await openDialog({
     multiple: true,
     filters: [
-      { name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd", "mdx"] },
-      { name: "Minden fájl", extensions: ["*"] },
+      { name: t("dialog.markdown"), extensions: ["md", "markdown", "mdown", "mkd", "mdx"] },
+      { name: t("dialog.all"), extensions: ["*"] },
     ],
   });
   if (!sel) return;
@@ -384,7 +500,8 @@ async function syncFolder() {
 function renderToc() {
   const toc = active?.toc ?? [];
   if (toc.length === 0) {
-    tocEl.innerHTML = `<div class="tree-empty">Nincsenek címsorok.</div>`;
+    tocEl.innerHTML = `<div class="tree-empty"></div>`;
+    tocEl.firstElementChild!.textContent = t("pane.noHeadings");
     return;
   }
   const min = Math.min(...toc.map((t) => t.level));
@@ -442,6 +559,7 @@ scroller.addEventListener(
       spyQueued = false;
       spy();
     });
+    queueSaveSession();
   },
   { passive: true },
 );
@@ -461,6 +579,8 @@ function openMenu() {
   check("toc", settings.sidebar && settings.pane === "toc");
   check("files", settings.sidebar && settings.pane === "files");
   check("wide", settings.wide);
+  check("restore", settings.restore);
+  renderLangSeg();
 
   const recent = load<string[]>("recent", []).slice(0, 5);
   const box = $("menu-recent");
@@ -468,7 +588,7 @@ function openMenu() {
   if (recent.length) {
     const h = document.createElement("div");
     h.className = "menu-label";
-    h.textContent = "Legutóbbi";
+    h.textContent = t("menu.recent");
     box.append(h, ...recent.map((p) => recentLink(p, () => (closeMenu(), openFile(p)), "button")));
     for (const el of box.querySelectorAll("button")) el.classList.add("recent-item");
   }
@@ -502,6 +622,7 @@ const actions: Record<string, () => unknown> = {
   toc: () => showPane("toc"),
   files: () => showPane("files"),
   wide: toggleWidth,
+  restore: toggleRestore,
   "zoom-in": () => setZoom(settings.zoom + 0.1),
   "zoom-out": () => setZoom(settings.zoom - 0.1),
   "zoom-reset": () => setZoom(1),
@@ -509,16 +630,18 @@ const actions: Record<string, () => unknown> = {
   update: () => checkForUpdates(true),
   about: showAbout,
 };
-const keepOpen = new Set(["zoom-in", "zoom-out", "zoom-reset"]);
+const keepOpen = new Set(["zoom-in", "zoom-out", "zoom-reset", "restore"]);
 
 menu.addEventListener("click", (e) => {
   const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button");
   if (!btn || btn.disabled) return;
   if (btn.dataset.themeSet) return setTheme(btn.dataset.themeSet as Theme);
+  if (btn.dataset.lang) return changeLang(btn.dataset.lang as Lang);
   const a = btn.dataset.action;
   if (!a) return;
   if (!keepOpen.has(a)) closeMenu();
   actions[a]?.();
+  if (a === "restore") btn.classList.toggle("checked", settings.restore);
 });
 
 menu.addEventListener("keydown", (e) => {
@@ -541,12 +664,12 @@ function printDoc() {
 }
 
 const about = $<HTMLDialogElement>("about");
-(about.querySelector("img") as HTMLImageElement).src = iconUrl;
+for (const img of document.querySelectorAll<HTMLImageElement>("img.app-icon")) img.src = iconUrl;
 for (const a of about.querySelectorAll<HTMLElement>("[data-href]")) a.onclick = () => openUrl(a.dataset.href!);
+const version = getVersion().catch(() => "");
 
 async function showAbout() {
-  const v = await getVersion().catch(() => "?");
-  $("about-version").textContent = `Verzió ${v}`;
+  $("about-version").textContent = t("about.version", await version);
   about.showModal();
 }
 
@@ -559,8 +682,8 @@ docsEl.addEventListener("click", async (e) => {
   if (copy) {
     const code = copy.parentElement!.querySelector("code") ?? copy.parentElement!;
     await navigator.clipboard.writeText(code.textContent ?? "");
-    copy.textContent = "Másolva ✓";
-    setTimeout(() => (copy.textContent = "Másolás"), 1200);
+    copy.textContent = t("doc.copied");
+    setTimeout(() => (copy.textContent = t("doc.copy")), 1200);
     return;
   }
 
@@ -741,17 +864,22 @@ getCurrentWebview().onDragDropEvent(async (ev) => {
 // ---- Indítás --------------------------------------------------------------------------------
 
 async function start() {
+  setLang(settings.lang ?? detectLang());
   initFind(scroller);
   applySettings();
+  version.then((v) => ($("welcome-version").textContent = v ? `v${v}` : ""));
   const files = await invoke<string[]>("take_launch_files").catch(() => []);
-  if (files.length) {
-    for (const p of files) await openFile(p);
-  } else {
-    activate(null);
-  }
+  await restoreSession();
+  for (const p of files) await openFile(p);
+  if (!active) activate(null);
+  sessionReady = true;
+  saveSession();
   await appWindow.show();
   await appWindow.setFocus();
   if (import.meta.env.PROD) setTimeout(() => checkForUpdates(), 4000);
 }
+
+// a debounce-olt mentés bezáráskor elveszhetne
+window.addEventListener("pagehide", saveSession);
 
 start();
