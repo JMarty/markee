@@ -1,6 +1,6 @@
 # Markee súgó
 
-A Markee gyors, egyszerű Markdown-**nézegető**. Megnyitja és szépen megmutatja a `.md` fájlokat – szerkeszteni a kedvenc szövegszerkesztődben tudsz, a Markee pedig mentéskor magától frissül.
+A Markee gyors, egyszerű Markdown-**nézegető**. Megnyitja és szépen megmutatja a `.md` fájlokat – szerkeszteni a kedvenc szövegszerkesztődben tudsz, a Markee pedig szól, ha a fájl megváltozik – vagy magától újratölti, ha bekapcsolod.
 
 ## Fájlok megnyitása
 
@@ -81,6 +81,12 @@ flowchart LR
 flowchart LR
   A[Markdown fájl] --> B(Markee) --> C{{Szép dokumentum}}
 ```
+
+## Ha a fájl megváltozik
+
+Ha egy nyitott fájl megváltozik a lemezen (pl. elmented egy szerkesztőben), a Markee a dokumentum tetején szól, és a tab neve mellett egy kék pötty jelenik meg. Az **Újratöltés** gombbal (vagy `F5`-tel) frissítheted.
+
+Ha azt szeretnéd, hogy magától frissüljön: menü → *Automatikus újratöltés változáskor*, vagy kattints az üzenetben a **Mindig automatikusan** gombra. A görgetési pozíció újratöltéskor megmarad. Ha a fájlt törölték vagy áthelyezték, azt is jelzi.
 
 ## Tabok visszaállítása
 

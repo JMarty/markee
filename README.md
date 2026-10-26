@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>A fast, lightweight Markdown viewer for Windows.</b><br>
-  Double-click a <code>.md</code> file and read it — with tabs, a table of contents, search, math, diagrams and live reload.
+  Double-click a <code>.md</code> file and read it — with tabs, a table of contents, search, math, diagrams and change detection.
 </p>
 
 <p align="center">
@@ -51,7 +51,7 @@ Grab the latest `Markee_x.y.z_x64-setup.exe` from the [**Releases**](https://git
 - **Folder view** – browse a whole documentation folder from the sidebar
 - **Find in page** (`Ctrl+F`) with match counter
 - **Link navigation** – relative `.md` links open inside Markee with back/forward history; external links open in your browser
-- **Live reload** – save the file in any editor and Markee updates instantly, keeping your scroll position
+- **Change detection** – when an open file changes on disk, Markee tells you and reloads with one click (`F5`); or turn on **automatic reload** in the menu. Your scroll position is kept
 
 **Rendering**
 - **GitHub-flavoured Markdown** – tables, task lists, strikethrough, autolinks, `<details>`
@@ -114,7 +114,7 @@ The UI also runs in a normal browser with a mocked backend: `npm run dev`, then 
 
 ```
 src/
-  main.ts       tabs, navigation, menu, sidebar, session, shortcuts, live reload
+  main.ts       tabs, navigation, menu, sidebar, session, shortcuts, change detection
   render.ts     Markdown → HTML (markdown-it, highlight.js, DOMPurify), paths
   extras.ts     math (KaTeX) and diagrams (Mermaid), lazy-loaded
   folder.ts     folder view

@@ -1,6 +1,6 @@
 # Markee-Hilfe
 
-Markee ist ein schneller, einfacher Markdown-**Viewer**. Er öffnet `.md`-Dateien und zeigt sie schön an – bearbeite sie in deinem Lieblingseditor, Markee lädt beim Speichern automatisch neu.
+Markee ist ein schneller, einfacher Markdown-**Viewer**. Er öffnet `.md`-Dateien und zeigt sie schön an – bearbeite sie in deinem Lieblingseditor, Markee meldet sich, wenn sich die Datei ändert – oder lädt sie automatisch neu, wenn du das einschaltest.
 
 ## Dateien öffnen
 
@@ -81,6 +81,12 @@ flowchart LR
 flowchart LR
   A[Markdown-Datei] --> B(Markee) --> C{{Schönes Dokument}}
 ```
+
+## Wenn sich eine Datei ändert
+
+Ändert sich eine geöffnete Datei auf der Festplatte (z. B. weil du sie in einem Editor speicherst), zeigt Markee oben im Dokument einen Hinweis und einen blauen Punkt neben dem Tab-Namen. Mit **Neu laden** (oder `F5`) aktualisierst du sie.
+
+Soll das automatisch passieren: Menü → *Bei Änderungen automatisch neu laden*, oder klicke im Hinweis auf **Immer automatisch neu laden**. Die Scrollposition bleibt erhalten. Wurde die Datei gelöscht oder verschoben, zeigt Markee das ebenfalls an.
 
 ## Tabs wiederherstellen
 

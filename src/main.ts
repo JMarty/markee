@@ -32,6 +32,8 @@ interface Tab {
   toc: TocItem[];
   doc: HTMLElement;
   tabEl: HTMLElement;
+  /** a fájl megváltozott / törlődött a lemezen, de még nem töltöttük újra */
+  stale: "changed" | "deleted" | null;
 }
 
 /** Beépített dokumentumok (pl. súgó) – nem fájlból jönnek, nem figyeljük őket. */
@@ -86,6 +88,8 @@ const settings = {
   lang: load<Lang | null>("lang", null),
   /** nyitott tabok visszaállítása induláskor (mint a Jegyzettömbben) */
   restore: load("restore", true),
+  /** változáskor magától újratölt; kikapcsolva csak értesít */
+  autoReload: load("autoReload", false),
 };
 
 function changeLang(l: Lang) {
@@ -261,6 +265,7 @@ $("welcome").addEventListener("click", (e) => {
 // ---- Fájlok betöltése ------------------------------------------------------------
 
 async function loadInto(tab: Tab, scroll = 0, hash = "") {
+  setStale(tab, null);
   let frag: DocumentFragment;
   try {
     const src = tab.path === HELP ? helpText() : await invoke<string>("read_file", { path: tab.path });
@@ -324,7 +329,7 @@ function createTab(path: string): Tab {
   doc.hidden = true;
   docsEl.appendChild(doc);
 
-  const tab: Tab = { id: nextId++, path, back: [], forward: [], scroll: 0, toc: [], doc, tabEl };
+  const tab: Tab = { id: nextId++, path, back: [], forward: [], scroll: 0, toc: [], doc, tabEl, stale: null };
   tabEl.addEventListener("mousedown", (e) => {
     if (e.button === 1) {
       e.preventDefault();
@@ -357,8 +362,10 @@ function activate(tab: Tab | null) {
     scroller.scrollTop = tab.scroll;
     appWindow.setTitle(`${titleOf(tab.path)} — Markee`);
     setFindRoot(tab.doc);
+    updateStaleBar();
   } else {
     appWindow.setTitle("Markee");
+    updateStaleBar();
     renderWelcome();
     setFindRoot(null);
     scroller.scrollTop = 0;
@@ -580,6 +587,7 @@ function openMenu() {
   check("files", settings.sidebar && settings.pane === "files");
   check("wide", settings.wide);
   check("restore", settings.restore);
+  check("autoreload", settings.autoReload);
   renderLangSeg();
 
   const recent = load<string[]>("recent", []).slice(0, 5);
@@ -623,6 +631,7 @@ const actions: Record<string, () => unknown> = {
   files: () => showPane("files"),
   wide: toggleWidth,
   restore: toggleRestore,
+  autoreload: toggleAutoReload,
   "zoom-in": () => setZoom(settings.zoom + 0.1),
   "zoom-out": () => setZoom(settings.zoom - 0.1),
   "zoom-reset": () => setZoom(1),
@@ -630,7 +639,7 @@ const actions: Record<string, () => unknown> = {
   update: () => checkForUpdates(true),
   about: showAbout,
 };
-const keepOpen = new Set(["zoom-in", "zoom-out", "zoom-reset", "restore"]);
+const keepOpen = new Set(["zoom-in", "zoom-out", "zoom-reset", "restore", "autoreload"]);
 
 menu.addEventListener("click", (e) => {
   const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button");
@@ -642,6 +651,7 @@ menu.addEventListener("click", (e) => {
   if (!keepOpen.has(a)) closeMenu();
   actions[a]?.();
   if (a === "restore") btn.classList.toggle("checked", settings.restore);
+  if (a === "autoreload") btn.classList.toggle("checked", settings.autoReload);
 });
 
 menu.addEventListener("keydown", (e) => {
@@ -758,7 +768,7 @@ document.addEventListener("keydown", (e) => {
   } else if (e.altKey && e.key === "ArrowLeft") goBack();
   else if (e.altKey && e.key === "ArrowRight") goForward();
   else if (e.key === "F1") openFile(HELP);
-  else if (e.key === "F5" || (ctrl && k === "r")) active && loadInto(active, scroller.scrollTop);
+  else if (e.key === "F5" || (ctrl && k === "r")) reloadActive();
   else if (e.key === "Home" && !isTyping(e)) scroller.scrollTop = 0;
   else if (e.key === "End" && !isTyping(e)) scroller.scrollTop = scroller.scrollHeight;
   else handled = false;
@@ -827,20 +837,74 @@ function cycleTheme() {
 
 $("btn-sidebar").onclick = toggleSidebar;
 
-// ---- Élő újratöltés -------------------------------------------------------------------
+// ---- Változás a lemezen: értesítés vagy automatikus újratöltés --------------------------
 
-const reloadTimers = new Map<string, number>();
+const staleBar = $("stale-bar");
+
+function setStale(tab: Tab, state: Tab["stale"]) {
+  tab.stale = state;
+  tab.tabEl.classList.toggle("stale", !!state);
+  if (tab === active) updateStaleBar();
+}
+
+function updateStaleBar() {
+  const s = active?.stale;
+  staleBar.hidden = !s;
+  if (!active || !s) return;
+  $("stale-text").textContent = t(s === "deleted" ? "stale.deleted" : "stale.changed", titleOf(active.path));
+  $("stale-reload").hidden = s === "deleted";
+  $("stale-auto").hidden = s === "deleted";
+}
+
+function reloadActive() {
+  if (active) loadInto(active, scroller.scrollTop);
+}
+
+$("stale-reload").onclick = reloadActive;
+$("stale-auto").onclick = () => {
+  if (!settings.autoReload) toggleAutoReload();
+  for (const tab of tabs) if (tab.stale === "changed") loadInto(tab, tab === active ? scroller.scrollTop : tab.scroll);
+};
+$("stale-dismiss").onclick = () => active && setStale(active, null);
+
+function toggleAutoReload() {
+  settings.autoReload = !settings.autoReload;
+  save("autoReload", settings.autoReload);
+}
+
+let toastTimer = 0;
+function toast(msg: string) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => (el.hidden = true), 2200);
+}
+
+async function onFileChanged(path: string) {
+  const affected = tabs.filter((tab) => samePath(tab.path, path));
+  if (!affected.length) return;
+  const exists = await invoke<boolean>("file_exists", { path }).catch(() => true);
+  for (const tab of affected) {
+    if (!exists) setStale(tab, "deleted");
+    else if (settings.autoReload) {
+      await loadInto(tab, tab === active ? scroller.scrollTop : tab.scroll);
+      if (tab === active) toast(t("stale.reloaded", titleOf(tab.path)));
+    } else setStale(tab, "changed");
+  }
+}
+
+// a szerkesztők mentéskor több eseményt is küldenek – ezeket összevonjuk
+const changeTimers = new Map<string, number>();
 listen<string>("file-changed", ({ payload }) => {
   const key = payload.toLowerCase();
-  clearTimeout(reloadTimers.get(key));
-  reloadTimers.set(
+  clearTimeout(changeTimers.get(key));
+  changeTimers.set(
     key,
     window.setTimeout(() => {
-      reloadTimers.delete(key);
-      for (const t of tabs) {
-        if (samePath(t.path, payload)) loadInto(t, t === active ? scroller.scrollTop : t.scroll);
-      }
-    }, 120),
+      changeTimers.delete(key);
+      onFileChanged(payload);
+    }, 150),
   );
 });
 

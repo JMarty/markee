@@ -1,6 +1,6 @@
 # Markee
 
-**Gyors, könnyű Markdown-nézegető Windowsra.** Dupla kattintás egy `.md` fájlon, és már olvasod is: tabokkal, tartalomjegyzékkel, kereséssel, képletekkel, diagramokkal, élő frissítéssel.
+**Gyors, könnyű Markdown-nézegető Windowsra.** Dupla kattintás egy `.md` fájlon, és már olvasod is: tabokkal, tartalomjegyzékkel, kereséssel, képletekkel, diagramokkal, változásfigyeléssel.
 
 [English](README.md) · **Magyar**
 
@@ -23,7 +23,7 @@ A Markdown nyersen olvasható, de renderelve az igazi. A meglévő megoldások v
 - **Oldalsáv** – tartalomjegyzék az aktuális szakasz kiemelésével, és **mappanézet** a dokumentációs könyvtárak böngészéséhez
 - **Keresés** – `Ctrl+F`, találatszámlálóval
 - **Linkek követése** – a relatív `.md` linkek az appon belül nyílnak meg, vissza/előre navigációval; a külső linkek a böngészőben
-- **Élő frissítés** – ha a fájl máshol módosul, azonnal frissül, a görgetési pozíció megmarad
+- **Változásfigyelés** – ha egy nyitott fájl megváltozik a lemezen, a Markee szól, és egy kattintással (`F5`) újratölti; a menüben **automatikus újratöltés** is bekapcsolható. A görgetési pozíció megmarad
 - **Nyomtatás / PDF** – `Ctrl+P` (PDF-be a „Microsoft Print to PDF” nyomtatóval)
 - **Menü** (☰ vagy `Alt`), beépített **súgó** (`F1`) és névjegy
 - **Automatikus frissítés** – induláskor csendben ellenőrzi, és egy kattintással frissít
@@ -92,7 +92,7 @@ A felület Tauri nélkül, böngészőben is kipróbálható (mockolt API-val): 
 
 ```
 src/
-  main.ts       tabok, navigáció, menü, oldalsáv, billentyűk, élő frissítés
+  main.ts       tabok, navigáció, menü, oldalsáv, billentyűk, változásfigyelés
   render.ts     Markdown → HTML (markdown-it, highlight.js, DOMPurify), útvonalak
   extras.ts     képletek (KaTeX) és diagramok (Mermaid), lusta betöltéssel
   folder.ts     mappanézet

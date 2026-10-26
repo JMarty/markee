@@ -1,6 +1,6 @@
 # Markee help
 
-Markee is a fast, simple Markdown **viewer**. It opens `.md` files and shows them nicely – edit them in your favourite editor, and Markee reloads automatically when you save.
+Markee is a fast, simple Markdown **viewer**. It opens `.md` files and shows them nicely – edit them in your favourite editor, and Markee tells you when the file changes – or reloads it by itself if you turn that on.
 
 ## Opening files
 
@@ -81,6 +81,12 @@ flowchart LR
 flowchart LR
   A[Markdown file] --> B(Markee) --> C{{Beautiful document}}
 ```
+
+## When a file changes
+
+If an open file changes on disk (for example you save it in an editor), Markee shows a notice at the top of the document and a blue dot next to the tab name. Click **Reload** (or press `F5`) to update it.
+
+To have it update by itself: menu → *Reload automatically when files change*, or click **Always reload automatically** in the notice. Your scroll position is kept. Markee also tells you if the file was deleted or moved.
 
 ## Reopening tabs
 

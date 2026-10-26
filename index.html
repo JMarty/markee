@@ -32,6 +32,7 @@
       <button data-action="files"><span data-i18n="menu.files"></span><kbd>Ctrl+Shift+E</kbd></button>
       <button data-action="wide"><span data-i18n="menu.wide"></span><kbd>Ctrl+Shift+W</kbd></button>
       <button data-action="restore"><span data-i18n="menu.restore"></span></button>
+      <button data-action="autoreload"><span data-i18n="menu.autoReload"></span></button>
       <div class="menu-row">
         <span data-i18n="menu.theme"></span>
         <div class="seg">
@@ -84,6 +85,13 @@
         </div>
       </aside>
       <div id="scroller">
+        <div id="stale-bar" role="status" hidden>
+          <svg viewBox="0 0 16 16"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"/></svg>
+          <span id="stale-text"></span>
+          <button id="stale-reload" class="primary" data-i18n="stale.reload"></button>
+          <button id="stale-auto" class="link-btn" data-i18n="stale.always"></button>
+          <button id="stale-dismiss" class="icon-btn" data-i18n-title="stale.dismiss">✕</button>
+        </div>
         <div id="docs"></div>
         <section id="welcome">
           <div class="hero">
@@ -170,6 +178,8 @@
       <p class="small">© 2026 <a data-href="https://github.com/JMarty">JMarty</a></p>
       <form method="dialog"><button class="primary" data-i18n="about.close"></button></form>
     </dialog>
+
+    <div id="toast" role="status" hidden></div>
 
     <div id="drop-overlay" hidden><div data-i18n="drop"></div></div>
     <script type="module" src="/src/main.ts"></script>

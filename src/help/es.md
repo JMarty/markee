@@ -1,6 +1,6 @@
 # Ayuda de Markee
 
-Markee es un **visor** de Markdown rápido y sencillo. Abre archivos `.md` y los muestra con buen aspecto: edítalos en tu editor favorito y Markee se recargará solo al guardar.
+Markee es un **visor** de Markdown rápido y sencillo. Abre archivos `.md` y los muestra con buen aspecto: edítalos en tu editor favorito y Markee te avisará cuando el archivo cambie, o lo recargará solo si lo activas.
 
 ## Abrir archivos
 
@@ -81,6 +81,12 @@ flowchart LR
 flowchart LR
   A[Archivo Markdown] --> B(Markee) --> C{{Documento bonito}}
 ```
+
+## Cuando un archivo cambia
+
+Si un archivo abierto cambia en el disco (por ejemplo, al guardarlo en un editor), Markee muestra un aviso arriba del documento y un punto azul junto al nombre de la pestaña. Pulsa **Recargar** (o `F5`) para actualizarlo.
+
+Para que se actualice solo: menú → *Recargar automáticamente al cambiar*, o pulsa **Recargar siempre automáticamente** en el aviso. Se conserva la posición de desplazamiento. Markee también te avisa si el archivo se eliminó o se movió.
 
 ## Restaurar pestañas
 

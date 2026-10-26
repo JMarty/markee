@@ -36,6 +36,12 @@
         ]);
 
       let cbId = 0;
+      // backend-események szimulálása: __emit("file-changed", path)
+      const listeners = {};
+      window.__emit = (event, payload) =>
+        (listeners[event] ?? []).forEach((id) => window["_" + id]?.({ event, payload, id }));
+      const missing = new Set();
+      window.__deleteFile = (path) => missing.add(path);
       window.__TAURI_INTERNALS__ = {
         metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
         convertFileSrc: toUrl,
@@ -51,7 +57,11 @@
             return r.text();
           }
           if (cmd === "take_launch_files") return files;
-          if (cmd === "file_exists") return true;
+          if (cmd === "file_exists") return !missing.has(args.path);
+          if (cmd === "plugin:event|listen") {
+            (listeners[args.event] ??= []).push(args.handler);
+            return args.handler;
+          }
           if (cmd === "plugin:app|version") return "0.3.0";
           if (cmd === "list_dir") {
             const dir = args.path.replace(/\\$/, "");
